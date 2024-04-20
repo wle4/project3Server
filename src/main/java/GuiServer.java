@@ -52,7 +52,7 @@ public class GuiServer extends Application{
         });
 
 		primaryStage.setScene(sceneMap.get("server"));
-		primaryStage.setTitle("This is the Server");
+		primaryStage.setTitle("Sorver");
 		primaryStage.show();
 		
 	}

@@ -13,13 +13,6 @@ public class Message implements Serializable {
         this.msg = msg;
     }
 
-//    //specifically used when message is sent
-//    public Message(String sender, String msg){
-//        this.receiver = "";
-//        this.sender = sender;
-//        this.msg = msg;
-//    }
-
     public String getReceiver(){
         // returns the username of the person that the message is being sent to
         return receiver;

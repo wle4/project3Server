@@ -13,10 +13,10 @@ import javafx.scene.control.ListView;
 
 public class Server{
 
-	private Map<String, ClientThread> serverUsers = new HashMap<>();
+	private Map<String, ClientThread> serverUsers = new HashMap<>(); // mapping usernames with their respective ClientThread
 
-	TheServer server;
-	private Consumer<Serializable> callback;
+	TheServer server; // instance of the actual server
+	private Consumer<Serializable> callback; // currently used to just print strings into the server GUI
 
 	Server(Consumer<Serializable> call){
 		callback = call;
@@ -33,7 +33,7 @@ public class Server{
 
 				System.out.println("Server is running!");
 
-				while(true) {
+				while(true) { // tells us when a new client is trying to join
 					ClientThread c = new ClientThread(mysocket.accept());
 					callback.accept("User is attempting to connect...");
 					c.start();
@@ -47,109 +47,127 @@ public class Server{
 	
 
 	class ClientThread extends Thread{
-			
-		
-		Socket connection;
-		ObjectInputStream in;
-		ObjectOutputStream out;
-		private String username;
-			
-		ClientThread(Socket s){
+
+		Socket connection; // socket connection between Server and Client
+		ObjectInputStream in; // socket input stream
+		ObjectOutputStream out; // socket output stream
+
+        ClientThread(Socket s){
 			this.connection = s;
 		}
 			
 		public void run(){
 			try {
+				//initializes socket information
 				in = new ObjectInputStream(connection.getInputStream());
 				out = new ObjectOutputStream(connection.getOutputStream());
 				connection.setTcpNoDelay(true);
 
-				while(true){
-					Message usernameMsg = (Message) in.readObject();
+                String username; //individual client's username is stored here
 
-					if(validUsername(usernameMsg.getMsg())){
-						this.username = usernameMsg.getMsg();
-						break;
+                while(true){ // THIS WHILE LOOP IS SPECIFICALLY FOR JUST THE USERNAME, continues to loop here until
+					Message usernameMsg = (Message) in.readObject(); // unpacks incoming Message objects
+
+					if(validUsername(usernameMsg.getMsg())){ // checks if the user's username is valid
+						serverMessage(new Message("", "Server", "good")); // sends back a mesage saying that the username is valid
+						username = usernameMsg.getMsg();
+						break; // stores username for this specific ClientThread and breaks out of the username loop
 					}
 					else {
-
+						serverMessage(new Message("", "Server", "Username already taken...")); // sends message back if their username is already taken
 					}
 				}
 
-				serverUsers.put(username, this);
-				callback.accept(username + "has joined");
+				serverUsers.put(username, this); // adds the client's username and ClientThread to the serverUsers map
+				callback.accept(username + " has joined"); // prints out on the server that a new user has joined
 
-				while(true){
+				while(true){ // loops for checking for new Message objects coming from client
 					try {
 						Message msg = (Message) in.readObject();
-						handleMsg(msg);
+						handleMsg(msg); // client's Message will be handled in a separate function
 					}
-					catch(Exception e) {
-						callback.accept("");
+					catch(Exception e) { // if a client disconnects
+						break;
 					}
 				}
+				callback.accept(username + " has disconnected"); // prints that this user has disconnected
+				serverUsers.remove(username); // remove user from user list
+
+				sendAll(new Message("","SERVER", username + " has disconnected")); // announces to everyone that this user has disconnected
+				connection.close(); // close client socket
 			}
 			catch(Exception e) {
 				//implement error message
 				callback.accept("User failed to join");
 			}
 
-
-				
-//			updateClients("new client on server: client #"+count);
-
 		}//end of run
 
 		private boolean validUsername(String username){
+			// checks if the client's username is valid
 			return username != null && !serverUsers.containsKey(username);
 		}
 
+		private void serverMessage(Message msg){
+			//specific for sending a message from the Server to a specific client (used for checking username)
+			try{
+				out.writeObject(msg);
+			}
+			catch(Exception e){}
+		}
+
 		private void handleMsg(Message msg){
-			if(msg.getReceiver().equals("all")){
+			// used for handling client messages
+			if(msg.getReceiver().equals("all")){ // if the receiver says "all", this means to send to all clients
 				sendAll(msg);
 			}
-			else {
+			else { // specifically handles direct messages between clients
 				sendDM(msg);
 			}
 
-			callback.accept(msg.getSender() + ": " + msg.getMsg());
+			callback.accept(msg.getSender() + ": " + msg.getMsg()); //prints client and their message in server
 		}
 
 		private void sendAll(Message msg){
-			String sender = msg.getSender();
+			// handles sending a message to ALL clients (for the public chatroom)
+			String sender = msg.getSender(); // unpacks client's Message object
 			String content = msg.getMsg();
+
+			// for-each loop going through the serverUsers and sending a new Message object to them
 			for(ClientThread client : serverUsers.values()){
 				try{
 					Message message = new Message("",sender, content);
-					client.out.writeObject(message);
+					client.out.writeObject(message); // sends new Message object to client
 				}
-				catch(Exception e){
+				catch(Exception e){ // server side error, something went wrong while sending to one of the clients
 					callback.accept(sender + "failed to send message to all");
 				}
 			}
 		}
 
 		private void sendDM(Message msg){
+			// unpacking the Message object from the client
 			String receiver = msg.getReceiver();
 			String sender = msg.getSender();
 			String content = msg.getMsg();
 
-			if(serverUsers.containsKey(receiver)){
+			if(serverUsers.containsKey(receiver)){ // checks if the user exists in our map of usernames
 				try {
-					Message message = new Message("", sender, content);
+					Message message = new Message("", sender, content); // repacks the Message object and sends it to the appropriate user
 					serverUsers.get(receiver).out.writeObject(message);
+					callback.accept(sender + " sent a message to " + receiver + ": " + content); // print direct messages into the server GUI to keep track of who's sending what to who
 				}
-				catch(Exception e){
+				catch(Exception e){ // Server side error, message wasn't sent for whatever reason
 					callback.accept(sender + " failed to send DM to " + receiver);
 				}
 			}
-			else{
+			else{ // if user is not found, send a Message object back to the sender saying they don't exist
 				try {
 					Message message = new Message(sender, "Server", ": User does not exist.");
 					serverUsers.get(sender).out.writeObject(message);
 				}
-				catch(Exception e){
-					callback.accept("ERROR ERROR ERROR");
+				catch(Exception e){ // server side error, error message was not able to send back to the sender
+					callback.accept("E");
 				}
 			}
 		}
