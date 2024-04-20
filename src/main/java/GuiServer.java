@@ -21,7 +21,7 @@ public class GuiServer extends Application{
 	HashMap<String, Scene> sceneMap;
 	Server serverConnection;
 	
-	ListView<String> listItems, listItems2;
+	ListView<String> listItems;
 	
 	
 	public static void main(String[] args) {

@@ -4,25 +4,21 @@ import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import javafx.application.Platform;
 import javafx.scene.control.ListView;
-/*
- * Clicker: A: I really get it    B: No idea what you are talking about
- * C: kind of following
- */
 
 public class Server{
 
-	int count = 1;	
-	ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
+	private Map<String, ClientThread> serverUsers = new HashMap<>();
+
 	TheServer server;
 	private Consumer<Serializable> callback;
-	
-	
+
 	Server(Consumer<Serializable> call){
-	
 		callback = call;
 		server = new TheServer();
 		server.start();
@@ -34,85 +30,130 @@ public class Server{
 		public void run() {
 		
 			try(ServerSocket mysocket = new ServerSocket(5555);){
-		    System.out.println("Server is waiting for a client!");
-		  
-			
-		    while(true) {
-		
-				ClientThread c = new ClientThread(mysocket.accept(), count);
-				callback.accept("client has connected to server: " + "client #" + count);
-				clients.add(c);
-				c.start();
-				
-				count++;
-				
-			    }
-			}//end of try
-				catch(Exception e) {
-					callback.accept("Server socket did not launch");
+
+				System.out.println("Server is running!");
+
+				while(true) {
+					ClientThread c = new ClientThread(mysocket.accept());
+					callback.accept("User is attempting to connect...");
+					c.start();
 				}
-			}//end of while
-		}
+			}//end of try
+			catch(Exception e) {
+				callback.accept("Server socket did not launch");
+			}
+		}//end of while
+	}
 	
 
-		class ClientThread extends Thread{
+	class ClientThread extends Thread{
 			
 		
-			Socket connection;
-			int count;
-			ObjectInputStream in;
-			ObjectOutputStream out;
+		Socket connection;
+		ObjectInputStream in;
+		ObjectOutputStream out;
+		private String username;
 			
-			ClientThread(Socket s, int count){
-				this.connection = s;
-				this.count = count;	
-			}
+		ClientThread(Socket s){
+			this.connection = s;
+		}
 			
-			public void updateClients(String message) {
-				for(int i = 0; i < clients.size(); i++) {
-					ClientThread t = clients.get(i);
+		public void run(){
+			try {
+				in = new ObjectInputStream(connection.getInputStream());
+				out = new ObjectOutputStream(connection.getOutputStream());
+				connection.setTcpNoDelay(true);
+
+				while(true){
+					Message usernameMsg = (Message) in.readObject();
+
+					if(validUsername(usernameMsg.getMsg())){
+						this.username = usernameMsg.getMsg();
+						break;
+					}
+					else {
+
+					}
+				}
+
+				serverUsers.put(username, this);
+				callback.accept(username + "has joined");
+
+				while(true){
 					try {
-					 t.out.writeObject(message);
+						Message msg = (Message) in.readObject();
+						handleMsg(msg);
 					}
-					catch(Exception e) {}
+					catch(Exception e) {
+						callback.accept("");
+					}
 				}
 			}
-			
-			public void run(){
-					
-				try {
-					in = new ObjectInputStream(connection.getInputStream());
-					out = new ObjectOutputStream(connection.getOutputStream());
-					connection.setTcpNoDelay(true);	
-				}
-				catch(Exception e) {
-					System.out.println("Streams not open");
-				}
+			catch(Exception e) {
+				//implement error message
+				callback.accept("User failed to join");
+			}
+
+
 				
-				updateClients("new client on server: client #"+count);
-					
-				 while(true) {
-					    try {
-					    	String data = in.readObject().toString();
-					    	callback.accept("client: " + count + " sent: " + data);
-					    	updateClients("client #"+count+" said: "+data);
-					    	
-					    	}
-					    catch(Exception e) {
-					    	callback.accept("OOOOPPs...Something wrong with the socket from client: " + count + "....closing down!");
-					    	updateClients("Client #"+count+" has left the server!");
-					    	clients.remove(this);
-					    	break;
-					    }
-					}
-				}//end of run
-			
-			
-		}//end of client thread
+//			updateClients("new client on server: client #"+count);
+
+		}//end of run
+
+		private boolean validUsername(String username){
+			return username != null && !serverUsers.containsKey(username);
+		}
+
+		private void handleMsg(Message msg){
+			if(msg.getReceiver().equals("all")){
+				sendAll(msg);
+			}
+			else {
+				sendDM(msg);
+			}
+
+			callback.accept(msg.getSender() + ": " + msg.getMsg());
+		}
+
+		private void sendAll(Message msg){
+			String sender = msg.getSender();
+			String content = msg.getMsg();
+			for(ClientThread client : serverUsers.values()){
+				try{
+					Message message = new Message("",sender, content);
+					client.out.writeObject(message);
+				}
+				catch(Exception e){
+					callback.accept(sender + "failed to send message to all");
+				}
+			}
+		}
+
+		private void sendDM(Message msg){
+			String receiver = msg.getReceiver();
+			String sender = msg.getSender();
+			String content = msg.getMsg();
+
+			if(serverUsers.containsKey(receiver)){
+				try {
+					Message message = new Message("", sender, content);
+					serverUsers.get(receiver).out.writeObject(message);
+				}
+				catch(Exception e){
+					callback.accept(sender + " failed to send DM to " + receiver);
+				}
+			}
+			else{
+				try {
+					Message message = new Message(sender, "Server", ": User does not exist.");
+					serverUsers.get(sender).out.writeObject(message);
+				}
+				catch(Exception e){
+					callback.accept("ERROR ERROR ERROR");
+				}
+			}
+		}
+
+	}//end of client thread
 }
 
-
-	
-	
-
-	
