@@ -86,7 +86,7 @@ public class Server{
 					serverUsers.put(username, this); // adds the client's username and ClientThread to the serverUsers map
 					signalUpdateUsers();
 				}
-				sendAll(new Message("", "SERVER: ", username + " has joined"));
+				sendAll(new Message("", "SERVER", username + " has joined"));
 				callback.accept(username + " has joined"); // prints out on the server that a new user has joined
 
 				while(true){ // loops for checking for new Message objects coming from client
@@ -132,12 +132,11 @@ public class Server{
 			// used for handling client messages
 			if(msg.getReceiver().equals("all")){ // if the receiver says "all", this means to send to all clients
 				sendAll(msg);
+				callback.accept(msg.getSender() + ": " + msg.getMsg()); //prints client and their message in server
 			}
 			else { // specifically handles direct messages between clients
 				sendDM(msg);
 			}
-
-			callback.accept(msg.getSender() + ": " + msg.getMsg()); //prints client and their message in server
 		}
 
 		private void sendAll(Message msg){

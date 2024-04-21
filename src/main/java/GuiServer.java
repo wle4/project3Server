@@ -54,7 +54,7 @@ public class GuiServer extends Application{
         });
 
 		primaryStage.setScene(sceneMap.get("server"));
-		primaryStage.setTitle("Sorver");
+		primaryStage.setTitle("Discord 2: SERVER");
 		primaryStage.show();
 		
 	}
