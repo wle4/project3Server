@@ -5,6 +5,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -44,7 +45,10 @@ public class Server{
 			}
 		}//end of while
 	}
-	
+
+	public List<String> updateCurrentUsers(){
+		return new ArrayList<>(serverUsers.keySet());
+	}
 
 	class ClientThread extends Thread{
 
@@ -78,7 +82,10 @@ public class Server{
 					}
 				}
 
-				serverUsers.put(username, this); // adds the client's username and ClientThread to the serverUsers map
+				synchronized (serverUsers) { // ensures thread safety when connecting a new client to the serverUsers
+					serverUsers.put(username, this); // adds the client's username and ClientThread to the serverUsers map
+					//update clientlist
+				}
 				callback.accept(username + " has joined"); // prints out on the server that a new user has joined
 
 				while(true){ // loops for checking for new Message objects coming from client
@@ -91,7 +98,11 @@ public class Server{
 					}
 				}
 				callback.accept(username + " has disconnected"); // prints that this user has disconnected
-				serverUsers.remove(username); // remove user from user list
+
+				synchronized(serverUsers) { // // ensures thread safety when disconnecting an existing client from the serverUsers
+					serverUsers.remove(username); // remove user from user list
+					//update clientList
+				}
 
 				sendAll(new Message("","SERVER", username + " has disconnected")); // announces to everyone that this user has disconnected
 				connection.close(); // close client socket

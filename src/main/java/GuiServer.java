@@ -6,11 +6,9 @@ import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -22,6 +20,7 @@ public class GuiServer extends Application{
 	Server serverConnection;
 	
 	ListView<String> listItems;
+	ListView<String> serverUsers;
 	
 	
 	public static void main(String[] args) {
@@ -33,15 +32,24 @@ public class GuiServer extends Application{
 		serverConnection = new Server(data -> {
 			Platform.runLater(()->{
 				listItems.getItems().add(data.toString());
+
+				int newClient = data.toString().indexOf("has joined");
+				int clientDisconnect = data.toString().indexOf("has disconnected");
+
+				if(newClient != -1)
+					serverUsers.getItems().addAll(serverConnection.updateCurrentUsers());
+
+				if(clientDisconnect != -1)
+					serverUsers.getItems().addAll(serverConnection.updateCurrentUsers());
 			});
 		});
 
-		
-		listItems = new ListView<String>();
+		listItems = new ListView<>();
+		serverUsers = new ListView<>();
 
 		sceneMap = new HashMap<String, Scene>();
 		
-		sceneMap.put("server",  createServerGui());
+		sceneMap.put("server", createServerGui());
 		
 		primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
             @Override
@@ -56,16 +64,42 @@ public class GuiServer extends Application{
 		primaryStage.show();
 		
 	}
-	
+
 	public Scene createServerGui() {
-		
+		TextField userHeader = new TextField("Online Users");
+		TextField activityHeader = new TextField("Activity");
+
+		userHeader.setEditable(false);
+		userHeader.setMouseTransparent(true);
+
+		userHeader.setStyle("-fx-background-color: transparent; " +
+				"-fx-border-width: 0; " +
+				"-fx-border-color: transparent;" +
+				"-fx-font-size: 16px");
+
+		activityHeader.setEditable(false);
+		activityHeader.setMouseTransparent(true);
+		activityHeader.setStyle("-fx-background-color: transparent; " +
+				"-fx-border-width: 0; " +
+				"-fx-border-color: transparent;" +
+				"-fx-font-size: 16px");
+
+		VBox userColumn = new VBox(10, userHeader, serverUsers);
+		VBox activityColumn = new VBox(10, activityHeader, listItems);
+
+		HBox server = new HBox(20, userColumn, activityColumn);
+
+		serverUsers.setPrefWidth(300);
+		listItems.setPrefWidth(600);
+
 		BorderPane pane = new BorderPane();
 		pane.setPadding(new Insets(70));
-		pane.setStyle("-fx-background-color: coral");
+		server.setStyle("-fx-background-color: coral");
 		
-		pane.setCenter(listItems);
-		pane.setStyle("-fx-font-family: 'serif'");
-		return new Scene(pane, 500, 400);
+		pane.setCenter(server);
+		pane.requestFocus();
+		pane.setStyle("-fx-font-family: 'serif'; -fx-background-color: coral");
+		return new Scene(pane, 700, 400);
 		
 		
 	}
