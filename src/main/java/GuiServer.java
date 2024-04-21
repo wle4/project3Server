@@ -33,14 +33,8 @@ public class GuiServer extends Application{
 			Platform.runLater(()->{
 				listItems.getItems().add(data.toString());
 
-				int newClient = data.toString().indexOf("has joined");
-				int clientDisconnect = data.toString().indexOf("has disconnected");
-
-				if(newClient != -1)
-					serverUsers.getItems().addAll(serverConnection.updateCurrentUsers());
-
-				if(clientDisconnect != -1)
-					serverUsers.getItems().addAll(serverConnection.updateCurrentUsers());
+				if(data.toString().contains("has joined") || data.toString().contains("has disconnected"))
+					updateServerUsersList();
 			});
 		});
 
@@ -63,6 +57,13 @@ public class GuiServer extends Application{
 		primaryStage.setTitle("Sorver");
 		primaryStage.show();
 		
+	}
+	private void updateServerUsersList() {
+		// Clear the current items and add all the updated server users
+		Platform.runLater(() -> {
+			serverUsers.getItems().clear();
+			serverUsers.getItems().addAll(serverConnection.updateCurrentUsers());
+		});
 	}
 
 	public Scene createServerGui() {

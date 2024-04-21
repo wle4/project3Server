@@ -46,7 +46,7 @@ public class Server{
 		}//end of while
 	}
 
-	public List<String> updateCurrentUsers(){
+	public ArrayList<String> updateCurrentUsers(){
 		return new ArrayList<>(serverUsers.keySet());
 	}
 
@@ -84,8 +84,9 @@ public class Server{
 
 				synchronized (serverUsers) { // ensures thread safety when connecting a new client to the serverUsers
 					serverUsers.put(username, this); // adds the client's username and ClientThread to the serverUsers map
-					//update clientlist
+					signalUpdateUsers();
 				}
+				sendAll(new Message("", "SERVER: ", username + " has joined"));
 				callback.accept(username + " has joined"); // prints out on the server that a new user has joined
 
 				while(true){ // loops for checking for new Message objects coming from client
@@ -101,7 +102,7 @@ public class Server{
 
 				synchronized(serverUsers) { // // ensures thread safety when disconnecting an existing client from the serverUsers
 					serverUsers.remove(username); // remove user from user list
-					//update clientList
+					signalUpdateUsers();
 				}
 
 				sendAll(new Message("","SERVER", username + " has disconnected")); // announces to everyone that this user has disconnected
@@ -164,8 +165,9 @@ public class Server{
 
 			if(serverUsers.containsKey(receiver)){ // checks if the user exists in our map of usernames
 				try {
-					Message message = new Message("", sender, content); // repacks the Message object and sends it to the appropriate user
+					Message message = new Message("", sender, "whispers " + content); // repacks the Message object and sends it to the appropriate user
 					serverUsers.get(receiver).out.writeObject(message);
+					serverUsers.get(sender).out.writeObject(message);
 					callback.accept(sender + " sent a message to " + receiver + ": " + content); // print direct messages into the server GUI to keep track of who's sending what to who
 				}
 				catch(Exception e){ // Server side error, message wasn't sent for whatever reason
@@ -179,6 +181,21 @@ public class Server{
 				}
 				catch(Exception e){ // server side error, error message was not able to send back to the sender
 					callback.accept("E");
+				}
+			}
+		}
+
+		private void signalUpdateUsers(){
+			ArrayList<String> userList = new ArrayList<>();
+			userList = updateCurrentUsers();
+
+			for(ClientThread client : serverUsers.values()){
+				try{
+					Message update = new Message("UPDATE", userList);
+					client.out.writeObject(update); // sends new Message object to client
+				}
+				catch(Exception e){ // server side error, something went wrong while sending to one of the clients
+					callback.accept("Failed to send updated Client list");
 				}
 			}
 		}
