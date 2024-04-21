@@ -106,6 +106,8 @@ public class Server{
 				}
 
 				sendAll(new Message("","SERVER", username + " has disconnected")); // announces to everyone that this user has disconnected
+				in.close();
+				out.close();
 				connection.close(); // close client socket
 			}
 			catch(Exception e) {
@@ -184,17 +186,19 @@ public class Server{
 			}
 		}
 
-		private void signalUpdateUsers(){
-			ArrayList<String> userList = new ArrayList<>();
-			userList = updateCurrentUsers();
+		private void signalUpdateUsers() {
+			synchronized (serverUsers) {
+				ArrayList<String> userList = new ArrayList<>();
+				userList = updateCurrentUsers();
 
-			for(ClientThread client : serverUsers.values()){
-				try{
-					Message update = new Message("UPDATE", userList);
-					client.out.writeObject(update); // sends new Message object to client
-				}
-				catch(Exception e){ // server side error, something went wrong while sending to one of the clients
-					callback.accept("Failed to send updated Client list");
+				for (ClientThread client : serverUsers.values()) {
+					try {
+						Message update = new Message("UPDATE", userList);
+						client.out.writeObject(update); // sends new Message object to client
+					} catch (
+							Exception e) { // server side error, something went wrong while sending to one of the clients
+						callback.accept("Failed to send updated Client list");
+					}
 				}
 			}
 		}
